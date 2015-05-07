@@ -2,7 +2,8 @@ var fs = require('fs'),
     path = require('path'),
     es = require('event-stream'),
     gutil = require('gulp-util'),
-    glob = require('glob');
+    glob = require('glob'),
+    strip = require('strip-comments');
 
 
 var DIRECTIVE_REGEX = /^[\/\s#]*?=\s*?((?:require|include)(?:_tree|_directory)?)\s+(.*$)/mg;
@@ -29,7 +30,7 @@ module.exports = function (params) {
         }
 
         if (file.isBuffer()) {
-            var newText = expand(String(file.contents), file.path);
+            var newText = expand(String(file.contents), file.path, params);
             file.contents = new Buffer(newText);
         }
 
@@ -39,7 +40,7 @@ module.exports = function (params) {
     return es.map(include)
 };
 
-function expand(fileContents, filePath) {
+function expand(fileContents, filePath, params) {
     var regexMatch,
         matches = [],
         returnText = fileContents,
@@ -70,7 +71,7 @@ function expand(fileContents, filePath) {
 
         for (j = 0; j < files.length; j++) {
             fileName = files[j];
-            newMatchText = expand(String(fs.readFileSync(fileName)), fileName);
+            newMatchText = expand(String(fs.readFileSync(fileName)), fileName, params);
 
             //Try to retain the same indent level from the original include line
             whitespace = original.match(/^\s+/);
@@ -92,6 +93,10 @@ function expand(fileContents, filePath) {
         }
 
         thisMatchText = thisMatchText || original;
+
+        if (params.stripComments) {
+            thisMatchText = strip.line(thisMatchText);
+        }
 
         returnText = replaceStringByIndices(returnText, start, end, thisMatchText);
     }
